@@ -1,4 +1,4 @@
-﻿Write-Host "=== [1/2] RUNNING AUTOMATED UNIT TESTS (CORE & GUI AC-01 -> AC-14) ===" -ForegroundColor Cyan
+Write-Host "=== [1/2] RUNNING AUTOMATED UNIT TESTS (CORE & GUI AC-01 -> AC-18) ===" -ForegroundColor Cyan
 & "C:\JerseyShift\.venv\Scripts\python.exe" -m unittest discover -s "C:\FRAYED_TEXT_PNG_GENERATOR\tests" -p "test_*.py" -v
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[FAIL] Tests failed!" -ForegroundColor Red

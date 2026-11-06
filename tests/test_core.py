@@ -8,7 +8,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.models.render_config import (
-    RenderConfig, TextConfig, StrokeConfig, DashConfig, FrayConfig, OutputConfig, parse_color
+    RenderConfig, TextConfig, SubTextConfig, StrokeConfig, DashConfig, FrayConfig, OutputConfig, parse_color
 )
 from app.core.engine import FrayedTextEngine
 
@@ -129,6 +129,58 @@ class TestFrayedTextEngine(unittest.TestCase):
 
         self.assertEqual(arr_lower.shape, arr_upper.shape)
         np.testing.assert_array_equal(arr_lower, arr_upper)
+
+    def test_ac15_dual_tier_rendering(self):
+        """AC-15: Dual-tier rendering seamlessly unifies Tier 1 and Tier 2 with bounding expansion."""
+        single_cfg = RenderConfig(
+            text=TextConfig(text="Eintracht", font_size=120),
+            subtext=SubTextConfig(enabled=False)
+        )
+        dual_cfg = RenderConfig(
+            text=TextConfig(text="Eintracht", font_size=120),
+            subtext=SubTextConfig(enabled=True, text="FRANKFURT", scale_ratio=0.45, alignment="right", offset_y=-8)
+        )
+        img_single = self.engine.render(single_cfg)
+        img_dual = self.engine.render(dual_cfg)
+
+        self.assertIsInstance(img_dual, Image.Image)
+        self.assertEqual(img_dual.mode, "RGBA")
+        # Dual-tier canvas height should be taller to accommodate both tiers
+        self.assertGreater(img_dual.height, img_single.height)
+        # Transparent borders check
+        arr = np.array(img_dual)
+        self.assertEqual(arr[0, 0, 3], 0)
+        self.assertEqual(arr[-1, -1, 3], 0)
+
+    def test_ac16_dual_tier_alignments(self):
+        """AC-16: Dual-tier handles left, center, right alignments gracefully without layout glitches."""
+        for align in ["left", "center", "right"]:
+            cfg = RenderConfig(
+                text=TextConfig(text="BAYERN", font_size=100),
+                subtext=SubTextConfig(enabled=True, text="MUNCHEN", scale_ratio=0.5, alignment=align)
+            )
+            img = self.engine.render(cfg)
+            self.assertEqual(img.mode, "RGBA")
+            self.assertGreater(img.width, 100)
+            self.assertGreater(img.height, 80)
+
+    def test_ac17_dual_tier_independent_color(self):
+        """AC-17: Tier 1 and Tier 2 can have independent color fills."""
+        cfg = RenderConfig(
+            text=TextConfig(text="TOP", font_size=120, text_color="#FF0000"),
+            subtext=SubTextConfig(enabled=True, text="SUB", scale_ratio=0.5, color="#00FF00", alignment="center"),
+            stroke=StrokeConfig(inner_enabled=False, outer_enabled=False),
+            dash=DashConfig(dash_enabled=False),
+            fray=FrayConfig(fray_enabled=False)
+        )
+        img = self.engine.render(cfg)
+        arr = np.array(img)
+        # Check presence of red pixels (Tier 1)
+        red_pixels = (arr[..., 0] > 200) & (arr[..., 1] < 50) & (arr[..., 2] < 50) & (arr[..., 3] > 200)
+        # Check presence of green pixels (Tier 2)
+        green_pixels = (arr[..., 0] < 50) & (arr[..., 1] > 200) & (arr[..., 2] < 50) & (arr[..., 3] > 200)
+        self.assertTrue(np.any(red_pixels), "Tier 1 red color must be present")
+        self.assertTrue(np.any(green_pixels), "Tier 2 green color must be present")
 
 if __name__ == "__main__":
     unittest.main()

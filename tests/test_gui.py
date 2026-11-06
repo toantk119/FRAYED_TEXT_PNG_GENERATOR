@@ -73,5 +73,31 @@ class TestGUIComponents(unittest.TestCase):
         self.assertTrue(cfg2.text.uppercase)
         self.assertEqual(cfg2.text.get_effective_text(), "ARSENAL LONDON")
 
+    def test_ac18_controls_dual_tier_checkbox(self):
+        """AC-18: GUI controls enable and configure secondary subtext tier."""
+        controls = ControlsPanel()
+        self.assertFalse(controls.grp_subtext.isChecked())
+        cfg1 = controls.get_render_config()
+        self.assertFalse(cfg1.subtext.enabled)
+
+        # Enable subtext
+        controls.grp_subtext.setChecked(True)
+        controls.txt_subtext.setText("FRANKFURT")
+        controls.combo_alignment.setCurrentIndex(0) # Right
+        controls.spin_scale_ratio.setValue(0.5)
+        controls.spin_offset_y.setValue(-12)
+        controls.spin_offset_x.setValue(5)
+        controls.chk_custom_sub_color.setChecked(True)
+        controls.color_subtext.edit_hex.setText("#FF00FF")
+
+        cfg2 = controls.get_render_config()
+        self.assertTrue(cfg2.subtext.enabled)
+        self.assertEqual(cfg2.subtext.text, "FRANKFURT")
+        self.assertEqual(cfg2.subtext.alignment, "right")
+        self.assertEqual(cfg2.subtext.scale_ratio, 0.5)
+        self.assertEqual(cfg2.subtext.offset_y, -12)
+        self.assertEqual(cfg2.subtext.offset_x, 5)
+        self.assertEqual(cfg2.subtext.color, "#FF00FF")
+
 if __name__ == "__main__":
     unittest.main()

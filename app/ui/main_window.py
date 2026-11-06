@@ -92,7 +92,8 @@ class MainWindow(QMainWindow):
 
     def _on_export_requested(self):
         config = self.controls.get_render_config(supersampling=2) # 2x supersampling for high-quality export
-        default_name = f"{config.text.get_effective_text().strip().replace(' ', '_')}_frayed.png"
+        sub_suffix = f"_{config.subtext.get_effective_text().strip().replace(' ', '_')}" if config.subtext.enabled else ""
+        default_name = f"{config.text.get_effective_text().strip().replace(' ', '_')}{sub_suffix}_frayed.png"
         
         file_path, _ = QFileDialog.getSaveFileName(
             self, "Export Transparent PNG", default_name, "PNG Files (*.png)"

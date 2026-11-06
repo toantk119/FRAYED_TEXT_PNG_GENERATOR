@@ -1,4 +1,4 @@
-﻿"""Compositor module for layering, color assignment, and anti-aliasing."""
+"""Compositor module for layering, color assignment, and anti-aliasing."""
 import cv2
 import numpy as np
 from PIL import Image
@@ -17,6 +17,7 @@ class Compositor:
         dash_mask: np.ndarray,
         fray_rgba: np.ndarray,
         config: RenderConfig,
+        subtext_mask: np.ndarray = None,
     ) -> Image.Image:
         """
         Composites all graphical layers with their respective colors.
@@ -60,13 +61,35 @@ class Compositor:
             inner_layer[mask_idx, 3] = 1.0
             canvas_rgba = self._blend_over(canvas_rgba, inner_layer)
 
-        # 5. Text Fill Layer
+        # 5. Text Fill Layer (Dual-tier support with independent colors)
         text_rgb = np.array(config.text.get_rgb(), dtype=np.float32) / 255.0
-        text_layer = np.zeros((h, w, 4), dtype=np.float32)
-        text_f = (text_mask.astype(np.float32) / 255.0)
-        text_layer[..., :3] = text_rgb
-        text_layer[..., 3] = text_f
-        canvas_rgba = self._blend_over(canvas_rgba, text_layer)
+        subtext_cfg = getattr(config, "subtext", None)
+        has_sub_color = (
+            subtext_mask is not None
+            and subtext_cfg is not None
+            and subtext_cfg.enabled
+            and bool(subtext_cfg.color and subtext_cfg.color.strip())
+        )
+
+        if has_sub_color:
+            sub_rgb = np.array(subtext_cfg.get_rgb(config.text.text_color), dtype=np.float32) / 255.0
+            primary_mask = np.clip(text_mask.astype(np.int32) - subtext_mask.astype(np.int32), 0, 255).astype(np.uint8)
+
+            t1_layer = np.zeros((h, w, 4), dtype=np.float32)
+            t1_layer[..., :3] = text_rgb
+            t1_layer[..., 3] = (primary_mask.astype(np.float32) / 255.0)
+            canvas_rgba = self._blend_over(canvas_rgba, t1_layer)
+
+            t2_layer = np.zeros((h, w, 4), dtype=np.float32)
+            t2_layer[..., :3] = sub_rgb
+            t2_layer[..., 3] = (subtext_mask.astype(np.float32) / 255.0)
+            canvas_rgba = self._blend_over(canvas_rgba, t2_layer)
+        else:
+            text_layer = np.zeros((h, w, 4), dtype=np.float32)
+            text_f = (text_mask.astype(np.float32) / 255.0)
+            text_layer[..., :3] = text_rgb
+            text_layer[..., 3] = text_f
+            canvas_rgba = self._blend_over(canvas_rgba, text_layer)
 
         # Convert back to uint8
         result_uint8 = np.clip(canvas_rgba * 255.0, 0, 255).astype(np.uint8)

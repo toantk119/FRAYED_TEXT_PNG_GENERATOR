@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.models.render_config import (
-    RenderConfig, TextConfig, StrokeConfig, DashConfig, FrayConfig, OutputConfig
+    RenderConfig, TextConfig, SubTextConfig, StrokeConfig, DashConfig, FrayConfig, OutputConfig
 )
 from app.core.engine import FrayedTextEngine
 
@@ -20,6 +20,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--letter-spacing", type=int, default=2, help="Letter spacing in pixels")
     parser.add_argument("--color", type=str, default="#1961B5", help="Text fill color HEX")
     parser.add_argument("--uppercase", action="store_true", help="Convert text to uppercase (ALL CAPS)")
+
+    # Secondary Text (Dual-tier Subtext)
+    parser.add_argument("--subtext", type=str, default="", help="Secondary subtext string (dual-tier)")
+    parser.add_argument("--subtext-scale", type=float, default=0.45, help="Subtext font size scale ratio (0.15 - 1.0)")
+    parser.add_argument("--subtext-align", type=str, choices=["left", "center", "right"], default="right", help="Subtext alignment")
+    parser.add_argument("--subtext-offset-x", type=int, default=0, help="Subtext horizontal offset in pixels")
+    parser.add_argument("--subtext-offset-y", type=int, default=-8, help="Subtext vertical offset in pixels (negative to tuck into tier 1)")
+    parser.add_argument("--subtext-uppercase", action="store_true", help="Convert subtext to uppercase")
+    parser.add_argument("--subtext-color", type=str, default="", help="Subtext fill color HEX (empty = inherit primary color)")
 
     # Strokes
     parser.add_argument("--inner-stroke-color", type=str, default="#FFFFFF", help="Inner stroke color HEX")
@@ -59,6 +68,16 @@ def main():
             letter_spacing=args.letter_spacing,
             text_color=args.color,
             uppercase=args.uppercase,
+        ),
+        subtext=SubTextConfig(
+            enabled=bool(args.subtext and args.subtext.strip()),
+            text=args.subtext or "FRANKFURT",
+            scale_ratio=args.subtext_scale,
+            alignment=args.subtext_align,
+            offset_x=args.subtext_offset_x,
+            offset_y=args.subtext_offset_y,
+            uppercase=args.subtext_uppercase,
+            color=args.subtext_color,
         ),
         stroke=StrokeConfig(
             inner_color=args.inner_stroke_color,

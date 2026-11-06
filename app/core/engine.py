@@ -1,4 +1,4 @@
-﻿"""High-level rendering coordinator engine."""
+"""High-level rendering coordinator engine."""
 from PIL import Image
 from app.models.render_config import RenderConfig
 from app.core.text_renderer import TextRenderer
@@ -18,9 +18,10 @@ class FrayedTextEngine:
 
     def render(self, config: RenderConfig) -> Image.Image:
         """Executes the full pipeline and returns a transparent RGBA PIL Image."""
-        # 1. Text & Base Alpha Mask
-        text_mask, bbox = self.text_renderer.render_mask(
-            config.text, padding=config.output.padding + 60
+        # 1. Text & Base Alpha Mask (with optional dual-tier subtext)
+        subtext_cfg = getattr(config, "subtext", None)
+        text_mask, bbox, sub_mask = self.text_renderer.render_mask(
+            config.text, padding=config.output.padding + 60, subtext_config=subtext_cfg
         )
 
         # 2. Inner and Outer Strokes
@@ -40,7 +41,7 @@ class FrayedTextEngine:
 
         # 5. Compositing & Anti-aliased Downsampling
         image = self.compositor.composite(
-            text_mask, inner_mask, outer_mask, dash_mask, fray_rgba, config
+            text_mask, inner_mask, outer_mask, dash_mask, fray_rgba, config, subtext_mask=sub_mask
         )
 
         return image

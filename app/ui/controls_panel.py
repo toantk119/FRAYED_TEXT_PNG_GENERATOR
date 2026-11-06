@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor, QFontDatabase
 from PySide6.QtCore import Qt, Signal
 from app.models.render_config import (
-    RenderConfig, TextConfig, StrokeConfig, DashConfig, FrayConfig, OutputConfig
+    RenderConfig, TextConfig, SubTextConfig, StrokeConfig, DashConfig, FrayConfig, OutputConfig
 )
 
 class ColorPickerWidget(QWidget):
@@ -143,6 +143,79 @@ class ControlsPanel(QWidget):
         self.color_text = ColorPickerWidget("#1961B5")
         self.color_text.colorChanged.connect(self._notify_change)
         l.addWidget(self.color_text)
+
+        # Dual-tier Subtext Group
+        self.grp_subtext = QGroupBox("Chữ Tầng 2 (Dual-tier / Sub-text)")
+        self.grp_subtext.setCheckable(True)
+        self.grp_subtext.setChecked(False)
+        self.grp_subtext.toggled.connect(self._notify_change)
+        sub_l = QVBoxLayout(self.grp_subtext)
+        sub_l.setSpacing(6)
+
+        sub_l.addWidget(QLabel("Text Tầng 2:"))
+        self.txt_subtext = QLineEdit("FRANKFURT")
+        self.txt_subtext.textChanged.connect(self._notify_change)
+        sub_l.addWidget(self.txt_subtext)
+
+        self.chk_sub_uppercase = QCheckBox("ALL CAPS (Viết HOA tầng 2)")
+        self.chk_sub_uppercase.setChecked(True)
+        self.chk_sub_uppercase.toggled.connect(self._notify_change)
+        sub_l.addWidget(self.chk_sub_uppercase)
+
+        # Alignment
+        sub_l.addWidget(QLabel("Căn Lề (Alignment):"))
+        self.combo_alignment = QComboBox()
+        self.combo_alignment.addItem("Lệch Phải (Right)", "right")
+        self.combo_alignment.addItem("Chính Giữa (Center)", "center")
+        self.combo_alignment.addItem("Lệch Trái (Left)", "left")
+        self.combo_alignment.currentIndexChanged.connect(self._notify_change)
+        sub_l.addWidget(self.combo_alignment)
+
+        # Size ratio & offsets
+        ratio_row = QHBoxLayout()
+        v_ratio = QVBoxLayout()
+        v_ratio.addWidget(QLabel("Tỉ lệ cỡ chữ:"))
+        self.spin_scale_ratio = QDoubleSpinBox()
+        self.spin_scale_ratio.setRange(0.15, 1.0)
+        self.spin_scale_ratio.setSingleStep(0.05)
+        self.spin_scale_ratio.setValue(0.45)
+        self.spin_scale_ratio.valueChanged.connect(self._notify_change)
+        v_ratio.addWidget(self.spin_scale_ratio)
+        ratio_row.addLayout(v_ratio)
+
+        v_offset_y = QVBoxLayout()
+        v_offset_y.addWidget(QLabel("Khoảng cách Y:"))
+        self.spin_offset_y = QSpinBox()
+        self.spin_offset_y.setRange(-80, 80)
+        self.spin_offset_y.setValue(-8)
+        self.spin_offset_y.setToolTip("Số âm để ăn khớp/tiếp xúc với chân tầng 1")
+        self.spin_offset_y.valueChanged.connect(self._notify_change)
+        v_offset_y.addWidget(self.spin_offset_y)
+        ratio_row.addLayout(v_offset_y)
+
+        v_offset_x = QVBoxLayout()
+        v_offset_x.addWidget(QLabel("Lệch ngang X:"))
+        self.spin_offset_x = QSpinBox()
+        self.spin_offset_x.setRange(-300, 300)
+        self.spin_offset_x.setValue(0)
+        self.spin_offset_x.valueChanged.connect(self._notify_change)
+        v_offset_x.addWidget(self.spin_offset_x)
+        ratio_row.addLayout(v_offset_x)
+
+        sub_l.addLayout(ratio_row)
+
+        # Color
+        self.chk_custom_sub_color = QCheckBox("Dùng màu riêng cho tầng 2")
+        self.chk_custom_sub_color.setChecked(False)
+        self.chk_custom_sub_color.toggled.connect(self._toggle_sub_color)
+        sub_l.addWidget(self.chk_custom_sub_color)
+
+        self.color_subtext = ColorPickerWidget("#1961B5")
+        self.color_subtext.setEnabled(False)
+        self.color_subtext.colorChanged.connect(self._notify_change)
+        sub_l.addWidget(self.color_subtext)
+
+        l.addWidget(self.grp_subtext)
 
         self.layout.addWidget(grp)
 
@@ -286,6 +359,10 @@ class ControlsPanel(QWidget):
             self.combo_font.setCurrentIndex(self.combo_font.count() - 1)
             self._notify_change()
 
+    def _toggle_sub_color(self, enabled):
+        self.color_subtext.setEnabled(enabled)
+        self._notify_change()
+
     def _randomize_seed(self):
         new_seed = random.randint(1, 999999)
         self.spin_seed.setValue(new_seed)
@@ -306,6 +383,16 @@ class ControlsPanel(QWidget):
                 letter_spacing=2,
                 text_color=self.color_text.get_color(),
                 uppercase=self.chk_uppercase.isChecked(),
+            ),
+            subtext=SubTextConfig(
+                enabled=self.grp_subtext.isChecked(),
+                text=self.txt_subtext.text() or "FRANKFURT",
+                scale_ratio=self.spin_scale_ratio.value(),
+                alignment=self.combo_alignment.currentData() or "right",
+                offset_x=self.spin_offset_x.value(),
+                offset_y=self.spin_offset_y.value(),
+                uppercase=self.chk_sub_uppercase.isChecked(),
+                color=self.color_subtext.get_color() if self.chk_custom_sub_color.isChecked() else "",
             ),
             stroke=StrokeConfig(
                 inner_color=self.color_inner.get_color(),

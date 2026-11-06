@@ -38,6 +38,26 @@ class TextConfig:
         return parse_color(self.text_color)
 
 @dataclass
+class SubTextConfig:
+    enabled: bool = False
+    text: str = "FRANKFURT"
+    font_path: str = ""           # Empty string = inherit primary font
+    scale_ratio: float = 0.45     # Secondary font size ratio relative to primary (e.g. 0.45x)
+    letter_spacing: int = 2
+    alignment: str = "right"      # 'left', 'center', 'right'
+    offset_x: int = 0             # Fine horizontal offset in pixels
+    offset_y: int = -8            # Vertical distance in pixels (negative to tuck into tier 1)
+    uppercase: bool = True
+    color: str = ""               # Empty string = inherit primary text color
+
+    def get_effective_text(self) -> str:
+        return self.text.upper() if self.uppercase else self.text
+
+    def get_rgb(self, fallback_hex: str) -> Tuple[int, int, int]:
+        c = self.color.strip() if self.color and self.color.strip() else fallback_hex
+        return parse_color(c)
+
+@dataclass
 class StrokeConfig:
     inner_color: str = "#FFFFFF"
     inner_width: int = 4
@@ -89,6 +109,7 @@ class OutputConfig:
 @dataclass
 class RenderConfig:
     text: TextConfig = field(default_factory=TextConfig)
+    subtext: SubTextConfig = field(default_factory=SubTextConfig)
     stroke: StrokeConfig = field(default_factory=StrokeConfig)
     dash: DashConfig = field(default_factory=DashConfig)
     fray: FrayConfig = field(default_factory=FrayConfig)
