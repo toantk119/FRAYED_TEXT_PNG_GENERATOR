@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt, Signal
 from app.models.render_config import (
     RenderConfig, TextConfig, SubTextConfig, StrokeConfig, DashConfig, FrayConfig, OutputConfig
 )
+from app.ui.font_picker_dialog import FontPickerDialog
 
 class ColorPickerWidget(QWidget):
     """Color picker with swatch button and HEX text field."""
@@ -75,6 +76,11 @@ class ControlsPanel(QWidget):
         self.setMinimumWidth(360)
         self.setMaximumWidth(420)
 
+        self.current_font_path = "C:/Windows/Fonts/arialbd.ttf"
+        self.current_font_name = "Arial Bold"
+        self.current_sub_font_path = ""
+        self.current_sub_font_name = ""
+
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -113,20 +119,34 @@ class ControlsPanel(QWidget):
         self.chk_uppercase.toggled.connect(self._notify_change)
         l.addWidget(self.chk_uppercase)
 
-        # Font
-        l.addWidget(QLabel("Font:"))
+        # Font Family & Style
+        l.addWidget(QLabel("Font Family & Style:"))
         font_row = QHBoxLayout()
+        font_row.setSpacing(6)
+
+        self.btn_psd_font = QPushButton("🎨 Arial Bold — Chọn Font PSD...")
+        self.btn_psd_font.setStyleSheet(
+            "text-align: left; padding: 6px 10px; font-weight: bold; "
+            "background-color: #2D3748; color: white; border-radius: 4px;"
+        )
+        self.btn_psd_font.setToolTip("Mở Hộp thoại Bộ Chọn Font Family chuẩn Photoshop (PSD)")
+        self.btn_psd_font.clicked.connect(self._open_font_picker)
+        font_row.addWidget(self.btn_psd_font, 1)
+
+        btn_browse = QPushButton("📁")
+        btn_browse.setToolTip("Mở file Font ngoài (.ttf, .otf)...")
+        btn_browse.setFixedWidth(34)
+        btn_browse.clicked.connect(self._browse_font)
+        font_row.addWidget(btn_browse)
+        l.addLayout(font_row)
+
+        # Quick select combo (recent fonts)
         self.combo_font = QComboBox()
         self.combo_font.addItem("Arial Bold", "C:/Windows/Fonts/arialbd.ttf")
         self.combo_font.addItem("Impact", "C:/Windows/Fonts/impact.ttf")
         self.combo_font.addItem("Arial Regular", "C:/Windows/Fonts/arial.ttf")
-        self.combo_font.currentIndexChanged.connect(self._notify_change)
-        font_row.addWidget(self.combo_font, 1)
-
-        btn_browse = QPushButton("Browse...")
-        btn_browse.clicked.connect(self._browse_font)
-        font_row.addWidget(btn_browse)
-        l.addLayout(font_row)
+        self.combo_font.currentIndexChanged.connect(self._on_combo_font_changed)
+        l.addWidget(self.combo_font)
 
         # Font size
         l.addWidget(QLabel("Font Size (px):"))
@@ -170,6 +190,21 @@ class ControlsPanel(QWidget):
         self.combo_alignment.addItem("Lệch Trái (Left)", "left")
         self.combo_alignment.currentIndexChanged.connect(self._notify_change)
         sub_l.addWidget(self.combo_alignment)
+
+        # Subtext Font
+        sub_font_row = QHBoxLayout()
+        sub_font_row.setSpacing(6)
+        self.chk_custom_sub_font = QCheckBox("Dùng font riêng:")
+        self.chk_custom_sub_font.setChecked(False)
+        self.chk_custom_sub_font.toggled.connect(self._toggle_sub_font)
+        sub_font_row.addWidget(self.chk_custom_sub_font)
+
+        self.btn_sub_font = QPushButton("🎨 Chọn Font Tầng 2...")
+        self.btn_sub_font.setEnabled(False)
+        self.btn_sub_font.setStyleSheet("font-size: 11px; padding: 4px;")
+        self.btn_sub_font.clicked.connect(self._open_sub_font_picker)
+        sub_font_row.addWidget(self.btn_sub_font, 1)
+        sub_l.addLayout(sub_font_row)
 
         # Size ratio & offsets
         ratio_row = QHBoxLayout()
@@ -351,13 +386,65 @@ class ControlsPanel(QWidget):
         btn_export.clicked.connect(self.exportRequested.emit)
         self.layout.addWidget(btn_export)
 
-    def _browse_font(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Select Font File", "C:/Windows/Fonts", "Fonts (*.ttf *.otf)")
-        if path:
-            name = os.path.basename(path)
+    def _open_font_picker(self):
+        sample = self.txt_input.text() or "Sample"
+        dlg = FontPickerDialog(current_font_path=self.current_font_path, sample_text=sample, parent=self)
+        if dlg.exec():
+            fam, path = dlg.get_selected_font()
+            self._set_font(fam, path)
+
+    def _open_sub_font_picker(self):
+        sample = self.txt_subtext.text() or "Sample"
+        current_path = self.current_sub_font_path or self.current_font_path
+        dlg = FontPickerDialog(current_font_path=current_path, sample_text=sample, parent=self)
+        if dlg.exec():
+            fam, path = dlg.get_selected_font()
+            self._set_sub_font(fam, path)
+
+    def _set_font(self, name: str, path: str):
+        if not path or not os.path.exists(path):
+            return
+        self.current_font_path = path
+        self.current_font_name = name
+        self.btn_psd_font.setText(f"🎨 {name} — Đổi...")
+        idx = self.combo_font.findData(path)
+        if idx >= 0:
+            self.combo_font.blockSignals(True)
+            self.combo_font.setCurrentIndex(idx)
+            self.combo_font.blockSignals(False)
+        else:
+            self.combo_font.blockSignals(True)
             self.combo_font.addItem(name, path)
             self.combo_font.setCurrentIndex(self.combo_font.count() - 1)
+            self.combo_font.blockSignals(False)
+        self._notify_change()
+
+    def _set_sub_font(self, name: str, path: str):
+        if not path or not os.path.exists(path):
+            return
+        self.current_sub_font_path = path
+        self.current_sub_font_name = name
+        self.btn_sub_font.setText(f"🎨 {name}")
+        self._notify_change()
+
+    def _on_combo_font_changed(self, idx):
+        path = self.combo_font.currentData()
+        name = self.combo_font.currentText()
+        if path and os.path.exists(path):
+            self.current_font_path = path
+            self.current_font_name = name
+            self.btn_psd_font.setText(f"🎨 {name} — Đổi...")
             self._notify_change()
+
+    def _browse_font(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Chọn File Font ngoài", "C:/Windows/Fonts", "Fonts (*.ttf *.otf)")
+        if path:
+            name = os.path.splitext(os.path.basename(path))[0]
+            self._set_font(name, path)
+
+    def _toggle_sub_font(self, enabled):
+        self.btn_sub_font.setEnabled(enabled)
+        self._notify_change()
 
     def _toggle_sub_color(self, enabled):
         self.color_subtext.setEnabled(enabled)
@@ -371,9 +458,9 @@ class ControlsPanel(QWidget):
         self.configChanged.emit()
 
     def get_render_config(self, supersampling: int = 1) -> RenderConfig:
-        font_path = self.combo_font.currentData()
+        font_path = self.current_font_path
         if not font_path or not os.path.exists(font_path):
-            font_path = "C:/Windows/Fonts/arialbd.ttf"
+            font_path = self.combo_font.currentData() or "C:/Windows/Fonts/arialbd.ttf"
 
         return RenderConfig(
             text=TextConfig(
@@ -387,6 +474,7 @@ class ControlsPanel(QWidget):
             subtext=SubTextConfig(
                 enabled=self.grp_subtext.isChecked(),
                 text=self.txt_subtext.text() or "FRANKFURT",
+                font_path=self.current_sub_font_path if self.chk_custom_sub_font.isChecked() else "",
                 scale_ratio=self.spin_scale_ratio.value(),
                 alignment=self.combo_alignment.currentData() or "right",
                 offset_x=self.spin_offset_x.value(),
